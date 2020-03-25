@@ -18,6 +18,7 @@ library (rgdal)
 library (rgeos)
 library (sp)
 library (spdep)
+# library (stringr)
 ```
 
 ## Load your data
@@ -39,12 +40,12 @@ TODO:
 source_dir   = "C:/shawn/lab_data/census_2016"
 source_db    = paste(source_dir, "census_subset.gdb", sep="/")
 source_layer = "SA1_2016_GreaterSydney"
-source_layer = "_test_for_r"
+source_layer = "_test_for_r_centroids"
 target_field = "SA1_7dig_long"
 
 output_dir    = source_dir
 output_driver = "GPKG"
-output_db     = paste(output_dir, "experiment.gpkg", sep="/")
+output_db     = paste(output_dir, "experiment2.gpkg", sep="/")
 output_layer_name = paste0("localG_", target_field)
 
 
@@ -55,6 +56,14 @@ if (!is.projected(data)) {
   message ("Data are not in a projected coordinate system, but the distance based measures should account for this")
 }
 
+sf = st_as_sf (data)  #  coerce data into sf class
+geom_type = class(sf$geometry)
+is_poly_data  = any (grepl ("POLY", geom_type))
+is_point_data = any (grepl ("POINT", geom_type))
+
+if (!(is_poly_data || is_point_data)) {
+  message ("Input data are neither points not polygons, this might not work")
+}
 
 ```
 
@@ -81,12 +90,17 @@ This requires that we first calculate the spatial weights.
 ```{r}
 
 distances = c(1000, 2000, 3000, 4000, 5000, 6000, 7000)
-output = data  #  should just use the geometry?
+output = data  #  should just use the geometry and target_field?
 generalGl = list()
 
 generalG.alt = "greater"  #  can also do "less" or "two.sided"
-sf = st_as_sf (data)  #  coerce data into sf class
-centroids = st_centroid(sf)
+
+if (is_point_data) {
+  centroids = sf
+} else {
+  centroids = st_centroid(sf)
+}
+
 i = 0
 for (target_dist in distances) {
   i = i + 1
@@ -104,7 +118,7 @@ for (target_dist in distances) {
 }
 ```
 
-Now unpack the General G results into a data frame
+Now unpack the General G results into a data frame.
 
 ```{r}
 #  unpack the general G results
@@ -118,7 +132,7 @@ generalG = list(
   "variance"    = numeric(),
   "alternative" = character()
 )
-#  could re-use from above, but this is more standalone
+#  could re-use distances from above, but this is more standalone
 distances = as.numeric (names(generalGl))
 i = 0
 for (G in generalGl) {
