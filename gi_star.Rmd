@@ -24,7 +24,7 @@ library (spdep)
 
 Remember to use forward slashes for directory separators.
 
-If you are using a shapefile then specify the directory containing the file.  If a geodatabase then specify the geodatabase directory.  
+If you are using a shapefile then specify the directory containing the file a the ```source_db```.  If a geodatabase then specify the geodatabase directory.  If a geopackage then use the path to the gpkg file.
 
 Directories are called "folders" on windows.
 
@@ -36,12 +36,18 @@ TODO:
 
 ```{r}
 
-source_dir = "C:/shawn/lab_data/census_2016/census_subset.gdb"
-target_layer = "SA1_2016_GreaterSydney"
-target_layer = "_test_for_r"
+source_dir = "C:/shawn/lab_data/census_2016"
+source_db  = paste(source_dir, "census_subset.gdb", sep="/")
+source_layer = "SA1_2016_GreaterSydney"
+source_layer = "_test_for_r"
 target_field = "SA1_7dig_long"
 
-data = readOGR(dsn = source_dir, layer = target_layer)
+output_dir = source_dir
+output_db  = paste(output_dir, "experiment.gpkg", sep="/")
+output_layer_name = paste0("localG_", target_field)
+
+
+data = readOGR(dsn = source_db, layer = source_layer)
 data[[target_field]] = data[[target_field]] / 1000
 
 if (!is.projected(data)) {
@@ -73,7 +79,7 @@ This requires that we first calculate the spatial weights.
 
 ```{r}
 
-distances = c(1000, 2000, 3000)
+distances = c(1000, 2000, 3000, 4000, 5000, 6000, 7000)
 output = data  #  should just use the geometry?
 generalGl = list()
 
@@ -134,10 +140,18 @@ for (G in generalGl) {
 #   names(generalG[[item]]) = c()
 # }
 df.G = as.data.frame(generalG)
+plot (df.G$Z~df.G$distance)
 
 
 ```
 
 
+Now we need to save the data to a file.  We will use the geopackage format for the spatial data.
+This will fail if you have the output open in a GIS.
 
+```{r}
+
+writeOGR(output, output_db, output_layer_name, driver="GPKG")
+
+```
 
