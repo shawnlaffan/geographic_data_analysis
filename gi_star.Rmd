@@ -24,26 +24,27 @@ library (spdep)
 
 Remember to use forward slashes for directory separators.
 
-If you are using a shapefile then specify the directory containing the file a the ```source_db```.  If a geodatabase then specify the geodatabase directory.  If a geopackage then use the path to the gpkg file.
+If you are using a shapefile then set ```source_db``` to be ```source_dir```.  If a geodatabase then specify the geodatabase directory name.  If a geopackage then use the .gpkg file name.
 
 Directories are called "folders" on windows.
 
-Note that rgdal can read geodatabase feature classes and tables, but cannot wite to them. We will use the geopackage format for that.
+Note that rgdal can read geodatabase feature classes and tables, but cannot wite to them. We will use the geopackage format for oututs by default as they can be read by both QGIS and ArcGIS.
 
 TODO:
   run a merge
-  project the data
+  handle point data
 
 ```{r}
 
-source_dir = "C:/shawn/lab_data/census_2016"
-source_db  = paste(source_dir, "census_subset.gdb", sep="/")
+source_dir   = "C:/shawn/lab_data/census_2016"
+source_db    = paste(source_dir, "census_subset.gdb", sep="/")
 source_layer = "SA1_2016_GreaterSydney"
 source_layer = "_test_for_r"
 target_field = "SA1_7dig_long"
 
-output_dir = source_dir
-output_db  = paste(output_dir, "experiment.gpkg", sep="/")
+output_dir    = source_dir
+output_driver = "GPKG"
+output_db     = paste(output_dir, "experiment.gpkg", sep="/")
 output_layer_name = paste0("localG_", target_field)
 
 
@@ -146,12 +147,20 @@ plot (df.G$Z~df.G$distance)
 ```
 
 
-Now we need to save the data to a file.  We will use the geopackage format for the spatial data.
+Now we need to save the Gi* results to a file.  We will use the geopackage format for the spatial data.
 This will fail if you have the output open in a GIS.
 
 ```{r}
 
-writeOGR(output, output_db, output_layer_name, driver="GPKG")
+writeOGR(output, output_db, output_layer_name, driver=output_driver)
+
 
 ```
 
+
+And now save the general G results.  These can be plotted using excel, or keep going with R if you prefer.
+
+```{r}
+out_csv = paste0 (output_dir, "/", output_layer_name, ".csv")
+write.csv (df.G, out_csv)
+```
