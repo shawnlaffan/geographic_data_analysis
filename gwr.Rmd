@@ -1,0 +1,178 @@
+---
+title: "gwr"
+author: "Shawn Laffan"
+date: "25 March 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+
+Load libraries
+
+```{r}
+library (rgdal)
+library (sp)
+library (spdep)
+library (spgwr)
+```
+
+## Load your data
+
+Remember to use forward slashes for directory separators.
+
+If you are using a shapefile then set ```source_db``` to equal ```source_dir```.  If using a geodatabase then specify the geodatabase directory name.  If using a geopackage then use the .gpkg file name.
+
+Directories are called "folders" on windows.
+
+Note that rgdal can read geodatabase feature classes and tables, but cannot wite to them. We will use the geopackage format for outputs by default as they can be read by both QGIS and ArcGIS, whle also allowing for long field names.
+
+
+```{r}
+
+source_dir   = "C:/shawn/lab_data/census_2016"
+source_db    = paste(source_dir, "census_subset.gdb", sep="/")
+source_layer = "SA1_2016_GreaterSydney"
+source_layer = "_test_for_r"
+dep_field    = "SA1_7dig_long"
+indep_field  = "SA1_7dig_long"
+
+output_dir    = source_dir
+output_driver = "GPKG"
+output_db     = paste(output_dir, "experiment_gwr.gpkg", sep="/")
+output_layer_pfx = paste("gwr", dep_field, "X", indep_field, sep="_")
+output_overwrite = FALSE
+
+if (file.exists (output_db)) {
+  existing_layers = ogrListLayers (output_db)
+  if (any(output_layer_name %in% existing_layers)) {
+    message (paste("Output layer", output_layer_name, "already exists in", output_db))
+    message ("You will need to change the output layer name, set overwrite layer to TRUE, or delete that layer before saving the results (if it is no longer needed)")
+  }
+}
+
+
+data = readOGR(dsn = source_db, layer = source_layer)
+
+if (dep_field == "SA1_7dig_long") {
+  #  debug
+  message ("Running with debug fields")
+  indep_field = paste0 (dep_field, "xx")
+  data[[dep_field]] = data[[dep_field]] / 1000
+  data[[indep_field]] = data[[dep_field]] + runif(n = length(data[[dep_field]]))
+}
+
+if (!is.projected(data)) {
+  message ("Data are not in a projected coordinate system, but the distance based measures should account for this")
+}
+
+data_sf = st_as_sf (data)  #  coerce data into sf class
+geom_type = class(data_sf$geometry)
+is_poly_data  = any (grepl ("POLY", geom_type))
+is_point_data = any (grepl ("POINT", geom_type))
+
+if (!(is_poly_data || is_point_data)) {
+  message ("Input data are neither points not polygons, this might not work")
+}
+
+```
+
+
+Plot the data if there are not too many features.   Otherwise it takes a very long time. 
+
+```{r}
+#  plotting can take a long time
+if (nrow(data) < 3000) {
+  spplot (data, zcol=dep_field)
+  spplot (data, zcol=indep_field)
+} else {
+  message ("too many features to plot by default, modify the code to show more")
+}
+
+summary (data[c(dep_field, indep_field)])
+
+```
+
+
+Now we run a GWR analysis.
+
+
+```{r}
+
+distances = c(1000, 2000, 3000, 4000, 5000)
+distances = c(1000, 2000)
+output = data  #  should just use the geometry and target_field?
+
+wt_func = gwr.bisquare  #  or gwr.Gauss to match ArcGIS
+
+ols.res = lm (
+  data[[dep_field]]~data[[indep_field]], 
+  data      = data
+)
+summary(ols.res)
+
+gwr.results = list();
+
+i = 0
+for (target_dist in distances) {
+  i = i + 1
+  message ("Running bandwidth ", target_dist)
+  
+  gwr.res = gwr (
+    data[[dep_field]]~data[[indep_field]],
+    data      = data,
+    bandwidth = target_dist,
+    gweight   = wt_func,
+    se.fit    = TRUE
+  )
+  gwr.results[[as.character(target_dist)]] = gwr.res
+
+}
+```
+
+
+
+Now we need to save the results to a databse, one layer per model.
+We will use the geopackage format for the spatial data.
+This will fail if you have the output open in a GIS.
+
+```{r}
+
+distances = as.numeric(names(gwr.results))
+
+i = 0
+for (model in gwr.results) {
+  i = i + 1
+  distance = distances[i]
+  df = model$SDF
+
+  #  clunk!!  will not work for >1 indep var
+  c_indep_str  = paste0 ("C_", indep_field)
+  se_indep_str = paste0 ("se.", indep_field)
+  names(df)[2] = paste0 ("C_", dep_field)
+  names(df)[3] = c_indep_str
+  names(df)[4] = "se.intercept"
+  names(df)[5] = se_indep_str
+
+  #  add the slightly dodgy local t-score
+  df$local_t = df[[c_indep_str]] / df[[se_indep_str]]
+
+  output_layer_name = paste (output_layer_pfx, distance, sep="_")
+
+  writeOGR(
+    df, 
+    output_db, 
+    output_layer_name, 
+    driver = output_driver,
+    overwrite_layer = output_overwrite
+  )
+
+  
+}
+
+
+```
+
