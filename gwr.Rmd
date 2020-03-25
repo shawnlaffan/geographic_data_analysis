@@ -18,7 +18,7 @@ library (rgdal)
 library (sp)
 library (spdep)
 library (spgwr)
-library (tools)
+# library (tools)
 ```
 
 ## Load your data
@@ -37,9 +37,9 @@ Note that rgdal can read geodatabase feature classes and tables, but cannot wite
 source_dir   = "C:/shawn/lab_data/census_2016"
 source_db    = paste(source_dir, "census_subset.gdb", sep="/")
 source_layer = "SA1_2016_GreaterSydney"
-source_layer = "_test_for_r"
-dep_field    = "SA1_7dig_long"
-indep_field  = "SA1_7dig_long"
+source_layer = "_test_for_r_w_attr"
+dep_field    = "Age_psns_att_edu_inst_25_ov_P"
+indep_field  = "Count_psns_occ_priv_dwgs_P"
 
 output_dir    = source_dir
 output_driver = "GPKG"
@@ -47,13 +47,14 @@ output_db     = paste(output_dir, "experiment_gwr.gpkg", sep="/")
 output_layer_pfx = paste("gwr", dep_field, "X", indep_field, sep="_")
 output_overwrite = FALSE
 
-if (file.exists (output_db)) {
-  existing_layers = ogrListLayers (output_db)
-  if (any(output_layer_name %in% existing_layers)) {
-    message (paste("Output layer", output_layer_name, "already exists in", output_db))
-    message ("You will need to change the output layer name, set overwrite layer to TRUE, or delete that layer before saving the results (if it is no longer needed)")
-  }
-}
+#  does not yet check correct layer names
+# if (file.exists (output_db)) {
+#   existing_layers = ogrListLayers (output_db)
+#   if (any(output_layer_name %in% existing_layers)) {
+#     message (paste("Output layer", output_layer_name, "already exists in", output_db))
+#     message ("You will need to change the output layer name, set overwrite layer to TRUE, or delete that layer before saving the results (if it is no longer needed)")
+#   }
+# }
 
 
 data = readOGR(dsn = source_db, layer = source_layer)
@@ -87,8 +88,8 @@ Plot the data if there are not too many features.   Otherwise it takes a very lo
 ```{r}
 #  plotting can take a long time
 if (nrow(data) < 3000) {
-  spplot (data, zcol=dep_field)
-  spplot (data, zcol=indep_field)
+  spplot (data, zcol=c(dep_field, indep_field))
+  # spplot (data, zcol=indep_field)
 } else {
   message ("too many features to plot by default, modify the code to show more")
 }
@@ -104,11 +105,11 @@ Now we run a GWR analysis.
 ```{r}
 
 distances = c(1000, 2000, 3000, 4000, 5000)
-distances = c(1000, 2000)
+# distances = c(1000, 2000)
 
 
-wt_func = gwr.bisquare  #  or gwr.Gauss to match ArcGIS
-wt_func = gwr.Gauss
+wt_func = gwr.bisquare  #  matches KDE
+wt_func = gwr.Gauss     #  matches ArcGIS
 
 ols.res = lm (
   data[[dep_field]]~data[[indep_field]], 
@@ -128,7 +129,9 @@ for (target_dist in distances) {
     data      = data,
     bandwidth = target_dist,
     gweight   = wt_func,
-    se.fit    = TRUE
+    se.fit    = TRUE,
+    # predictions = TRUE,
+    hatmatrix = TRUE
   )
   gwr.results[[as.character(target_dist)]] = gwr.res
 
@@ -152,13 +155,14 @@ for (model in gwr.results) {
   df = model$SDF
 
   #  clunk!!  will not work for >1 indep var
+  n = names (df)
+  n = gsub ("X.Intercept.", "intercept", n)
   c_indep_str  = paste0 ("C_", indep_field)
-  se_indep_str = paste0 ("se.", indep_field)
-  names(df)[2] = paste0 ("C_", dep_field)
-  names(df)[3] = c_indep_str
-  names(df)[4] = "se.intercept"
-  names(df)[5] = se_indep_str
+  n = gsub ("data..indep_field..", c_indep_str, n)
+  names(df) = n
 
+  se_indep_str  = paste0 (c_indep_str, "_se")
+  
   #  add the slightly dodgy local t-score
   df$local_t = df[[c_indep_str]] / df[[se_indep_str]]
 
@@ -179,14 +183,6 @@ for (model in gwr.results) {
     layer = output_layer_name, 
     update = TRUE
   )
-  # writeOGR(
-  #   df, 
-  #   this_output_db, 
-  #   output_layer_name, 
-  #   driver = output_driver,
-  #   overwrite_layer = output_overwrite,
-  #   verbose = TRUE
-  # )
 
   
 }
