@@ -142,7 +142,8 @@ for (target_dist in distances) {
 
 Now we need to save the results to a databse, one layer per model.
 We will use the geopackage format for the spatial data.
-This will fail if you have the output open in a GIS.
+This will fail if you have the output open in a GIS,
+or if the output DB already exists and contains these layers and overwrite is FALSE.
 
 ```{r}
 
@@ -181,7 +182,8 @@ for (model in gwr.results) {
     st_as_sf (df),
     this_output_db, 
     layer = output_layer_name, 
-    update = TRUE
+    update = TRUE,
+    delete_layer = overwrite
   )
 
   
