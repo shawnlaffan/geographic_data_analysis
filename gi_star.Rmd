@@ -1,0 +1,143 @@
+---
+title: "gi_star"
+author: "Shawn Laffan"
+date: "25 March 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+
+Load libraries
+
+```{r}
+library (rgdal)
+library (rgeos)
+library (sp)
+library (spdep)
+```
+
+## Load your data
+
+Remember to use forward slashes for directory separators.
+
+If you are using a shapefile then specify the directory containing the file.  If a geodatabase then specify the geodatabase directory.  
+
+Directories are called "folders" on windows.
+
+Note that rgdal can read geodatabase feature classes and tables, but cannot wite to them. We will use the geopackage format for that.
+
+TODO:
+  run a merge
+  project the data
+
+```{r}
+
+source_dir = "C:/shawn/lab_data/census_2016/census_subset.gdb"
+target_layer = "SA1_2016_GreaterSydney"
+target_layer = "_test_for_r"
+target_field = "SA1_7dig_long"
+
+data = readOGR(dsn = source_dir, layer = target_layer)
+data[[target_field]] = data[[target_field]] / 1000
+
+if (!is.projected(data)) {
+  message ("Data are not in a projected coordinate system, but the distance based measures should account for this")
+}
+
+
+```
+
+
+Plot the data if there are not too many features.   Otherwise it takes a very long time. 
+
+```{r}
+#  plotting can take a long time
+if (nrow(data) < 3000) {
+  spplot (data, zcol=target_field)
+} else {
+  message ("too many features to plot by default, modify the code to show more")
+}
+
+summary (data[[target_field]])
+
+```
+
+
+Now we run a Gi* analysis.
+
+This requires that we first calculate the spatial weights.
+
+```{r}
+
+distances = c(1000, 2000, 3000)
+output = data  #  should just use the geometry?
+generalGl = list()
+
+generalG.alt = "greater"  #  can also do "less" or "two.sided"
+sf = st_as_sf (data)  #  coerce data into sf class
+centroids = st_centroid(sf)
+i = 0
+for (target_dist in distances) {
+  i = i + 1
+  message ("Running distance ", target_dist)
+  nbrs = include.self (dnearneigh(centroids, 0, target_dist))
+  wts  = nb2listw(nbrs, style="B")
+  
+  G.gen = globalG.test (sf[[target_field]], wts, alternative=generalG.alt)
+  generalGl[[as.character(target_dist)]] = G.gen
+  
+  G.local = localG(sf[[target_field]], wts)
+  out_fld_name = paste0("G", target_dist)
+  output[[out_fld_name]] = as.numeric(G.local)
+  # spplot(output, zcol=out_fld_name)
+}
+```
+
+Now unpack the General G results into a data frame
+
+```{r}
+#  unpack the general G results
+#  this is sooooo clunky
+generalG = list(
+  "distance" = numeric(),
+  "Z" = numeric(),
+  "p.value"   = numeric(),
+  "observed"   = numeric(),
+  "expectation" = numeric(),
+  "variance"    = numeric(),
+  "alternative" = character()
+)
+#  could re-use from above, but this is more standalone
+distances = as.numeric (names(generalGl))
+i = 0
+for (G in generalGl) {
+  i = i + 1
+  distance = distances[i]
+  message (distance)
+  generalG[["distance"]] = append(generalG[["distance"]], distance)
+  #  simple ones
+  generalG[["Z"]] = append (generalG[["Z"]], G[["statistic"]])
+  generalG[["p.value"]]   = append (generalG[["p.value"]], G[["p.value"]])
+  generalG[["alternative"]] = append (generalG[["alternative"]], G[["alternative"]])
+  #  nested comonents
+  generalG[["observed"]]    = append (generalG[["observed"]], G[["estimate"]][["Global G statistic"]])
+  generalG[["expectation"]] = append (generalG[["expectation"]], G[["estimate"]][["Expectation"]])
+  generalG[["variance"]]    = append (generalG[["variance"]], G[["estimate"]][["Variance"]])
+
+}
+
+# for (item in names(generalG)) {
+#   names(generalG[[item]]) = c()
+# }
+df.G = as.data.frame(generalG)
+
+
+```
+
+
+
+
