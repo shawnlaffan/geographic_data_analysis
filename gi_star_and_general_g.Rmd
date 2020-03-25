@@ -18,7 +18,6 @@ library (rgdal)
 library (rgeos)
 library (sp)
 library (spdep)
-# library (stringr)
 ```
 
 ## Load your data
@@ -31,9 +30,6 @@ Directories are called "folders" on windows.
 
 Note that rgdal can read geodatabase feature classes and tables, but cannot wite to them. We will use the geopackage format for outputs by default as they can be read by both QGIS and ArcGIS, whle also allowing for long field names.
 
-TODO:
-  run a merge
-  handle point data
 
 ```{r}
 
@@ -47,6 +43,15 @@ output_dir    = source_dir
 output_driver = "GPKG"
 output_db     = paste(output_dir, "experiment2.gpkg", sep="/")
 output_layer_name = paste0("localG_", target_field)
+output_overwrite = FALSE
+
+if (file.exists (output_db)) {
+  existing_layers = ogrListLayers (output_db)
+  if (any(output_layer_name %in% existing_layers)) {
+    message (paste("Output layer", output_layer_name, "already exists in", output_db))
+    message ("You will need to change the output layer name, set overwrite layer to TRUE, or delete that layer before saving the results (if it is not longer needed)")
+  }
+}
 
 
 data = readOGR(dsn = source_db, layer = source_layer)
@@ -166,7 +171,7 @@ This will fail if you have the output open in a GIS.
 
 ```{r}
 
-writeOGR(output, output_db, output_layer_name, driver=output_driver)
+writeOGR(output, output_db, output_layer_name, driver=output_driver, overwrite_layer = output_overwrite)
 
 
 ```
