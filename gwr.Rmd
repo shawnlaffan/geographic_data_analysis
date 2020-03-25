@@ -18,6 +18,7 @@ library (rgdal)
 library (sp)
 library (spdep)
 library (spgwr)
+library (tools)
 ```
 
 ## Load your data
@@ -62,7 +63,7 @@ if (dep_field == "SA1_7dig_long") {
   message ("Running with debug fields")
   indep_field = paste0 (dep_field, "xx")
   data[[dep_field]] = data[[dep_field]] / 1000
-  data[[indep_field]] = data[[dep_field]] + runif(n = length(data[[dep_field]]))
+  data[[indep_field]] = data[[dep_field]] * 0.5 + runif(n = length(data[[dep_field]]))
 }
 
 if (!is.projected(data)) {
@@ -104,9 +105,10 @@ Now we run a GWR analysis.
 
 distances = c(1000, 2000, 3000, 4000, 5000)
 distances = c(1000, 2000)
-output = data  #  should just use the geometry and target_field?
+
 
 wt_func = gwr.bisquare  #  or gwr.Gauss to match ArcGIS
+wt_func = gwr.Gauss
 
 ols.res = lm (
   data[[dep_field]]~data[[indep_field]], 
@@ -161,13 +163,18 @@ for (model in gwr.results) {
   df$local_t = df[[c_indep_str]] / df[[se_indep_str]]
 
   output_layer_name = paste (output_layer_pfx, distance, sep="_")
+  this_output_db = file_path_sans_ext (output_db) 
+  this_output_db = paste0 (this_output_db, "_bwdth", distance, ".gpkg")
+  
+  message (paste ("Writing", paste (this_output_db, output_layer_name, sep="/")))
 
   writeOGR(
     df, 
-    output_db, 
+    this_output_db, 
     output_layer_name, 
     driver = output_driver,
-    overwrite_layer = output_overwrite
+    overwrite_layer = output_overwrite,
+    verbose = TRUE
   )
 
   
