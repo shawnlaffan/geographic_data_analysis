@@ -15,7 +15,6 @@ Load libraries
 
 ```{r}
 library (rgdal)
-library (rgeos)
 library (sp)
 library (spdep)
 ```
@@ -55,7 +54,10 @@ if (file.exists (output_db)) {
 
 
 data = readOGR(dsn = source_db, layer = source_layer)
-data[[target_field]] = data[[target_field]] / 1000
+if (target_field == "SA1_7dig_long") {
+  #  debug
+  data[[target_field]] = data[[target_field]] / 1000
+}
 
 if (!is.projected(data)) {
   message ("Data are not in a projected coordinate system, but the distance based measures should account for this")
