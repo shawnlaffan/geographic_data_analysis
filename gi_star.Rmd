@@ -28,7 +28,7 @@ If you are using a shapefile then set ```source_db``` to be ```source_dir```.  I
 
 Directories are called "folders" on windows.
 
-Note that rgdal can read geodatabase feature classes and tables, but cannot wite to them. We will use the geopackage format for oututs by default as they can be read by both QGIS and ArcGIS.
+Note that rgdal can read geodatabase feature classes and tables, but cannot wite to them. We will use the geopackage format for outputs by default as they can be read by both QGIS and ArcGIS, whle also allowing for long field names.
 
 TODO:
   run a merge
