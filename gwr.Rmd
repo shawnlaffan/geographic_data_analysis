@@ -163,19 +163,30 @@ for (model in gwr.results) {
   df$local_t = df[[c_indep_str]] / df[[se_indep_str]]
 
   output_layer_name = paste (output_layer_pfx, distance, sep="_")
-  this_output_db = file_path_sans_ext (output_db) 
-  this_output_db = paste0 (this_output_db, "_bwdth", distance, ".gpkg")
-  
-  message (paste ("Writing", paste (this_output_db, output_layer_name, sep="/")))
+  this_output_db = output_db
 
-  writeOGR(
-    df, 
-    this_output_db, 
-    output_layer_name, 
-    driver = output_driver,
-    overwrite_layer = output_overwrite,
-    verbose = TRUE
+  message (
+    paste (
+      "Writing",
+      paste (this_output_db, output_layer_name, sep="/")
+    )
   )
+
+  # as_sf = st_as_sf (df)
+  st_write (
+    st_as_sf (df),
+    this_output_db, 
+    layer = output_layer_name, 
+    update = TRUE
+  )
+  # writeOGR(
+  #   df, 
+  #   this_output_db, 
+  #   output_layer_name, 
+  #   driver = output_driver,
+  #   overwrite_layer = output_overwrite,
+  #   verbose = TRUE
+  # )
 
   
 }
