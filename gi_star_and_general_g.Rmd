@@ -24,7 +24,7 @@ library (spdep)
 
 Remember to use forward slashes for directory separators.
 
-If you are using a shapefile then set ```source_db``` to be ```source_dir```.  If a geodatabase then specify the geodatabase directory name.  If a geopackage then use the .gpkg file name.
+If you are using a shapefile then set ```source_db``` to equal ```source_dir```.  If using a geodatabase then specify the geodatabase directory name.  If using a geopackage then use the .gpkg file name.
 
 Directories are called "folders" on windows.
 
@@ -49,7 +49,7 @@ if (file.exists (output_db)) {
   existing_layers = ogrListLayers (output_db)
   if (any(output_layer_name %in% existing_layers)) {
     message (paste("Output layer", output_layer_name, "already exists in", output_db))
-    message ("You will need to change the output layer name, set overwrite layer to TRUE, or delete that layer before saving the results (if it is not longer needed)")
+    message ("You will need to change the output layer name, set overwrite layer to TRUE, or delete that layer before saving the results (if it is no longer needed)")
   }
 }
 
@@ -61,8 +61,8 @@ if (!is.projected(data)) {
   message ("Data are not in a projected coordinate system, but the distance based measures should account for this")
 }
 
-sf = st_as_sf (data)  #  coerce data into sf class
-geom_type = class(sf$geometry)
+data_sf = st_as_sf (data)  #  coerce data into sf class
+geom_type = class(data_sf$geometry)
 is_poly_data  = any (grepl ("POLY", geom_type))
 is_point_data = any (grepl ("POINT", geom_type))
 
@@ -101,9 +101,9 @@ generalGl = list()
 generalG.alt = "greater"  #  can also do "less" or "two.sided"
 
 if (is_point_data) {
-  centroids = sf
+  centroids = data_sf
 } else {
-  centroids = st_centroid(sf)
+  centroids = st_centroid(data_sf)
 }
 
 i = 0
@@ -113,10 +113,10 @@ for (target_dist in distances) {
   nbrs = include.self (dnearneigh(centroids, 0, target_dist))
   wts  = nb2listw(nbrs, style="B")
   
-  G.gen = globalG.test (sf[[target_field]], wts, alternative=generalG.alt)
+  G.gen = globalG.test (data_sf[[target_field]], wts, alternative=generalG.alt)
   generalGl[[as.character(target_dist)]] = G.gen
   
-  G.local = localG(sf[[target_field]], wts)
+  G.local = localG(data_sf[[target_field]], wts)
   out_fld_name = paste0("G", target_dist)
   output[[out_fld_name]] = as.numeric(G.local)
   # spplot(output, zcol=out_fld_name)
