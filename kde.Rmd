@@ -123,7 +123,7 @@ distances = c(100000, 200000)
 #  CLUNK
 Window(data_ppp)
 
-wt_func = "epanechnikov"  #  matches ArcGIS
+wt_func = "quartic"  #  matches ArcGIS
 
 kde.results = list();
 
@@ -137,7 +137,10 @@ for (target_dist in distances) {
     sigma   = target_dist, 
     kernel  = wt_func, 
     weights = data[[intens_field]],
-    na.rm   = TRUE
+    na.rm   = TRUE,
+    positive = TRUE,
+    eps = 10000,  #  cell size
+    leaveoneout = FALSE
   )
   #  avoid scientific notation in names
   label = format(target_dist, scientific=FALSE)
@@ -174,10 +177,17 @@ for (model in kde.results) {
     )
   )
 
+  kde_raster = raster(model)
+  crs(kde_raster) = crs(data)  #  set the coord sys
+  kde_raster[kde_raster <= 1e-15] = NA  #  clear zeroes and negs
+  kde_raster = 1000000 * kde_raster  #  assumes data are in square metres
+  
+  message (paste("Saving result for distance", distance, "to", output_full_path, sep=" "))
+  
   writeRaster (
-    raster(model),
+    kde_raster,
     output_full_path, 
-    overwrite = overwrite
+    overwrite = output_overwrite
   )
   
 }
