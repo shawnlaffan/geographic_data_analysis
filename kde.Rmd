@@ -1,0 +1,192 @@
+---
+title: "kde"
+author: "Shawn Laffan"
+date: "27 March 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load libraries
+
+Load libraries
+
+Note that this process has been developed using this as a reference:
+https://mgimond.github.io/Spatial/point-pattern-analysis-in-r.html
+
+
+```{r}
+library (rgdal)
+library (sp)
+# library (spdep)
+library (sf)
+library (maptools)
+library (raster)
+library (spatstat)
+
+
+```
+
+## Load your data
+
+Remember to use forward slashes for directory separators.
+
+If you are using a shapefile then set ```source_db``` to equal ```source_dir```.  If using a geodatabase then specify the geodatabase directory name.  If using a geopackage then use the .gpkg file name.
+
+Directories are called "folders" on windows.
+
+Note that rgdal can read geodatabase feature classes and tables, but cannot wite to them. We will use the geopackage format for outputs by default as they can be read by both QGIS and ArcGIS, whle also allowing for long field names.
+
+
+```{r}
+
+source_dir   = "C:/shawn/lab_data/Aus_quakes"
+# source_db    = paste(source_dir, "census_subset.gdb", sep="/")
+source_db    = source_dir
+source_layer = "quakes_gt0"  #  no .shp extension needed
+intens_field = "MAG"  #  intensity/pop count field, set to NULL to ignore
+
+output_dir    = source_dir
+output_driver = "GeoTIFF"
+output_raster_pfx = paste("kde", intens_field, sep="_")
+output_overwrite = FALSE
+
+
+data = readOGR(dsn = source_db, layer = source_layer)
+
+no_marks = FALSE
+if (is.null (intens_field)) {
+  #  should check if this exists, but we save to new data anyway.
+  intens_field = "___DEFAULT_INTENS_FLD___"
+  data[[intens_field]] = 1
+  no_marks = TRUE
+}
+
+
+if (!is.projected(data)) {
+  message ("Data are not in a projected coordinate system, reprojecting")
+  #  project here
+}
+
+data_sf = st_as_sf (data)  #  coerce data into sf class to check geometry type
+geom_type = class(data_sf$geometry)
+is_poly_data  = any (grepl ("POLY", geom_type))
+is_point_data = any (grepl ("POINT", geom_type))
+
+if (!(is_poly_data || is_point_data)) {
+  message ("Input data are neither points nor polygons, this might not work")
+}
+if (is_poly_data) {
+  message ("Input data are polygon, will use centroids.  Be warned.")
+}
+
+data_ppp = as (data, "ppp")
+if (no_marks) {
+  marks(data_ppp) = NULL
+}
+
+```
+
+
+Plot the data if there are not too many features.   Otherwise it takes a very long time. 
+
+```{r}
+#  plotting can take a long time
+if (nrow(data) < 3000) {
+  spplot (data, zcol=c(intens_field))
+  # spplot (data, zcol=indep_field)
+} else {
+  message ("too many features to plot by default, modify the code to show more")
+}
+
+summary (data[c(intens_field)])
+
+```
+
+
+Now we run a KDE analysis.
+
+
+```{r}
+
+distances = c(100000, 20000000, 300000, 400000, 500000)
+distances = c(100000, 200000)
+
+#  set the analysis window
+#  CLUNK
+ma <- as(data, "owin") 
+Window(ma)
+
+wt_func = gwr.bisquare  #  matches KDE
+wt_func = gwr.Gauss     #  matches ArcGIS
+
+
+kde.results = list();
+
+i = 0
+for (target_dist in distances) {
+  i = i + 1
+  message ("Running bandwidth ", target_dist)
+  
+  kde.res <- density(data_ppp, sigma=target_dist)
+  kde.results[[as.character(target_dist)]] = kde.res
+
+}
+```
+
+
+
+Now we need to save the results to a databse, one layer per model.
+We will use the geopackage format for the spatial data.
+This will fail if you have the output open in a GIS,
+or if the output DB already exists and contains these layers and overwrite is FALSE.
+
+```{r}
+
+distances = as.numeric(names(gwr.results))
+
+i = 0
+for (model in gwr.results) {
+  i = i + 1
+  distance = distances[i]
+  df = model$SDF
+
+  #  clunk!!  will not work for >1 indep var
+  n = names (df)
+  n = gsub ("X.Intercept.", "intercept", n)
+  c_indep_str  = paste0 ("C_", indep_field)
+  n = gsub ("data..indep_field..", c_indep_str, n)
+  names(df) = n
+
+  se_indep_str  = paste0 (c_indep_str, "_se")
+  
+  #  add the slightly dodgy local t-score
+  df$local_t = df[[c_indep_str]] / df[[se_indep_str]]
+
+  output_layer_name = paste (output_layer_pfx, distance, sep="_")
+  this_output_db = output_db
+
+  message (
+    paste (
+      "Writing",
+      paste (this_output_db, output_layer_name, sep="/")
+    )
+  )
+
+  # as_sf = st_as_sf (df)
+  st_write (
+    st_as_sf (df),
+    this_output_db, 
+    layer = output_layer_name, 
+    update = TRUE,
+    delete_layer = overwrite
+  )
+
+  
+}
+
+
+```
+
