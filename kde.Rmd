@@ -136,7 +136,8 @@ for (target_dist in distances) {
     data_ppp, 
     sigma   = target_dist, 
     kernel  = wt_func, 
-    weights = data[[intens_field]]
+    weights = data[[intens_field]],
+    na.rm   = TRUE
   )
   #  avoid scientific notation in names
   label = format(target_dist, scientific=FALSE)
