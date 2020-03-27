@@ -68,6 +68,11 @@ if (is.null (intens_field)) {
 if (!is.projected(data)) {
   message ("Data are not in a projected coordinate system, reprojecting")
   #  project here
+  #  epsg 3577 is Australian Albers, see epsg.io for more proj.4 strings
+  #  e.g mollweide is (from http://epsg.io/54009)
+  #  "+proj=moll +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
+  proj_code = "+init=epsg:3577"
+  data = spTransform (data, proj_code)
 }
 
 data_sf = st_as_sf (data)  #  coerce data into sf class to check geometry type
