@@ -121,12 +121,9 @@ distances = c(100000, 200000)
 
 #  set the analysis window
 #  CLUNK
-ma <- as(data, "owin") 
-Window(ma)
+Window(data_ppp)
 
-wt_func = gwr.bisquare  #  matches KDE
-wt_func = gwr.Gauss     #  matches ArcGIS
-
+wt_func = "epanechnikov"  #  matches ArcGIS
 
 kde.results = list();
 
@@ -135,60 +132,52 @@ for (target_dist in distances) {
   i = i + 1
   message ("Running bandwidth ", target_dist)
   
-  kde.res <- density(data_ppp, sigma=target_dist)
-  kde.results[[as.character(target_dist)]] = kde.res
+  kde.res <- density(
+    data_ppp, 
+    sigma   = target_dist, 
+    kernel  = wt_func, 
+    weights = data[[intens_field]]
+  )
+  #  avoid scientific notation in names
+  label = format(target_dist, scientific=FALSE)
+  kde.results[[label]] = kde.res
 
 }
 ```
 
 
 
-Now we need to save the results to a databse, one layer per model.
-We will use the geopackage format for the spatial data.
-This will fail if you have the output open in a GIS,
-or if the output DB already exists and contains these layers and overwrite is FALSE.
+Now we need to save the results to a set of geotiffs, one per analysis.
+We will use the geotiff format for the spatial data.
+This will fail if you have the output open in a GIS.
 
 ```{r}
 
-distances = as.numeric(names(gwr.results))
+distances = names(kde.results)
 
 i = 0
-for (model in gwr.results) {
+for (model in kde.results) {
   i = i + 1
-  distance = distances[i]
+  distance = format (distances[i], scientific=FALSE)
+  # is.character(distance)
   df = model$SDF
 
-  #  clunk!!  will not work for >1 indep var
-  n = names (df)
-  n = gsub ("X.Intercept.", "intercept", n)
-  c_indep_str  = paste0 ("C_", indep_field)
-  n = gsub ("data..indep_field..", c_indep_str, n)
-  names(df) = n
-
-  se_indep_str  = paste0 (c_indep_str, "_se")
-  
-  #  add the slightly dodgy local t-score
-  df$local_t = df[[c_indep_str]] / df[[se_indep_str]]
-
-  output_layer_name = paste (output_layer_pfx, distance, sep="_")
-  this_output_db = output_db
+  output_name = paste (output_raster_pfx, distance, sep="_")
+  output_name = paste0 (output_name, ".tif")
+  output_full_path = paste (output_dir, output_name, sep="/")
 
   message (
     paste (
       "Writing",
-      paste (this_output_db, output_layer_name, sep="/")
+      output_full_path
     )
   )
 
-  # as_sf = st_as_sf (df)
-  st_write (
-    st_as_sf (df),
-    this_output_db, 
-    layer = output_layer_name, 
-    update = TRUE,
-    delete_layer = overwrite
+  writeRaster (
+    raster(model),
+    output_full_path, 
+    overwrite = overwrite
   )
-
   
 }
 
