@@ -33,9 +33,10 @@ Note that rgdal can read geodatabase feature classes and tables, but cannot wite
 ```{r}
 
 source_dir   = "C:/shawn/lab_data/census_2016"
+#  for a shapefile the source db is the source directory
 source_db    = paste(source_dir, "census_subset.gdb", sep="/")
 source_layer = "SA1_2016_GreaterSydney"
-source_layer = "_test_for_r_centroids"
+# source_layer = "_test_for_r_centroids"
 target_field = "SA1_7dig_long"
 
 output_dir    = source_dir
@@ -54,10 +55,10 @@ if (file.exists (output_db)) {
 
 
 data = readOGR(dsn = source_db, layer = source_layer)
-if (target_field == "SA1_7dig_long") {
-  #  debug
-  data[[target_field]] = data[[target_field]] / 1000
-}
+# if (target_field == "SA1_7dig_long") {
+#   #  debug
+#   data[[target_field]] = data[[target_field]] / 1000
+# }
 
 if (!is.projected(data)) {
   message ("Data are not in a projected coordinate system, but the distance based measures should account for this")
