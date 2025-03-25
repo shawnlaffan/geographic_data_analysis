@@ -7,15 +7,15 @@ Load needed libraries, installing if necessary.
 
 
 ```{r}
-list.of.packages <- c("MODISTools", "terra", "stringi", "svDialogs", "ncdf4")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
 
-library ("MODISTools")
-library ("terra")
-library ("stringi")
-library ("svDialogs")
-library ("ncdf4") 
+pack_list = c("MODISTools", "terra", "stringi", "svDialogs", "ncdf4")
+install_list = pack_list[!(pack_list %in% installed.packages()[,"Package"])]
+if(length(install_list)) install.packages(install_list)
+
+for (p in pack_list) {
+  library(p, character.only = TRUE)
+}
+
 
 ```
 

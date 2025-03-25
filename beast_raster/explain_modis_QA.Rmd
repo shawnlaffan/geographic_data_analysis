@@ -6,11 +6,14 @@ output: html_notebook
 Needed libs
 
 ```{r}
-list.of.packages <- c("svDialogs")
-new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
-if(length(new.packages)) install.packages(new.packages)
+pack_list = c("svDialogs")
+install_list = pack_list[!(pack_list %in% installed.packages()[,"Package"])]
+if(length(install_list)) install.packages(install_list)
 
-library ("svDialogs")
+for (p in pack_list) {
+  library(p, character.only = TRUE)
+}
+
 ```
 
 Load some functions
