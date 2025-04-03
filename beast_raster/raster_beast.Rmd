@@ -7,12 +7,18 @@ Load needed libraries.  Install if necessary.
 
 ```{r}
 
-pack_list = c("terra", "Rbeast", "stringi", "svDialogs", "ncdf4", "lubridate")
+pack_list = c("terra", "Rbeast", "stringi", "svDialogs", "ncdf4", "lubridate", "methods")
 install_list = pack_list[!(pack_list %in% installed.packages()[,"Package"])]
 if(length(install_list)) install.packages(install_list)
 
 for (p in pack_list) {
   library(p, character.only = TRUE)
+}
+
+if (!hasMethods("toMemory", package="terra")) {
+  #  update terra
+  install.packages("terra")
+  library("terra")
 }
 
 
