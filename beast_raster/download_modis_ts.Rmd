@@ -149,6 +149,8 @@ if (length(target) == 0) {
 product = NULL
 band    = NULL
 
+message ("Coords are ", lat, " ", lon)
+message ("Box sizes are ", ext_width, " ", ext_height)
 message ("no_export is ", no_export)
 message ("save_flag is ", save_flag)
 
