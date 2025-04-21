@@ -46,9 +46,11 @@ beast_modis = function (raster, start_time = NULL, ...) {
     time(tmp_ras) = strptime(dates, "%Y-%m-%d")
   }
 
-  Y = values(tmp_ras)
+  # Y = values(tmp_ras)
   #dim(Y)   = dims[c(2,1,3)]    # Assign column-major dim expected by Rbeast
-  dim(Y)   = dims[c(1,2,3)]
+  #  avoid the need to transpose
+  Y = as.matrix(tmp_ras, wide=TRUE)
+  dim(Y)   = dims[c(1,2,3)]  #  could just use dims directly...
 
   metadata = list(
     time             = time(tmp_ras),
@@ -78,7 +80,7 @@ beast_modis = function (raster, start_time = NULL, ...) {
   o = beast123 (Y, metadata = metadata, extra = extra, ...)
   
   #  pack in some extra info - underhanded but works for now
-  o$ext = as.vector(ext(raster)) #  ext objects do not survive serialisation
+  o$ext = as.vector(ext(raster)) #  ext objects do not survive serialisation otherwise
   o$crs = crs(raster)
 
   gc()
@@ -129,14 +131,19 @@ coord2idx_rbeast = function (b, coord) {
 plot_beast_modis_coord = function (b, coord, t=FALSE) {
   rowcol = coord2idx_rbeast(b, coord)
   
-  message ("Plotting image row ", rowcol[1], ", col ", rowcol[2])
+  
   #  transpose for beast coords
   if (t) {
-    plot (b[rowcol[c(2,1)]])
+    rc = rowcol[c(2,1)]
   }
   else {
-    plot (b[rowcol[c(1,2)]])
+    rc = rowcol[c(1,2)]
   }
+  message ("Plotting image row ", rc[1], ", col ", rc[2])
+  message ("Mean number of trend change points is ",  b$trend$ncp[rc[1],rc[2]])
+  message ("Mean number of season change points is ", b$season$ncp[rc[1],rc[2]])
+  plot (b[rc])
+
 }
 
 load_data = function (file = NULL, drivers=NULL) {
@@ -226,7 +233,7 @@ beastbit2raster = function (b, component = "trend", subcomponent = "ncp", templa
       data,
       b$nrows[1],
       b$ncols[1],
-      byrow = TRUE
+      byrow = FALSE
     )
     r = terra::rast(m, extent=ext, crs=crs)
   }
@@ -316,6 +323,7 @@ export_beast_rasters = function (b, dir, prefix="", overwrite=FALSE) {
       writeCDF(list[[name]], outfile, overwrite=overwrite)
     }
   }
+  invisible(list)
 }
 
 
@@ -366,7 +374,7 @@ In ArcGIS:
   Also that the map's "Display units" are in "meters".
   Both of these can be set under the map's properties (right click on the map name 
   in the table of contents).  Display units is under the General section, 
-  the Coordinate Systems should be self-documenting
+  the Coordinate Systems should be self-documenting.
 
   The display units can also be changed by clicking 
   the drop down to the right of the coordinate at the bottom of the map pane.
@@ -394,7 +402,7 @@ output_prefix = svDialogs::dlg_input(message = "Filename prefix", default="")$re
 save_flag      = svDialogs::dlg_list  (choices = c("No", "Yes"), title = "Overwrite existing files?")$res
 overwrite_flag = ifelse (length(save_flag) > 0 && save_flag == "Yes", TRUE, FALSE)
 
-export_beast_rasters(beast_result, output_dir, output_prefix, overwrite_flag)
+b_rasters = export_beast_rasters(beast_result, output_dir, output_prefix, overwrite_flag)
 
 
 ```
